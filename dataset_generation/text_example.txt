@@ -1,0 +1,3 @@
+This is a sample text that mentions paracetamol and dobutamine.
+
+The goal: to see if the script I wrote to create test files from text files works properly.

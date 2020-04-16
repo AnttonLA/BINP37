@@ -3,23 +3,43 @@
 
 import sys
 import json
+import csv
 from os import listdir
 from os.path import isfile, join
 
-mypath = '../comm_use_subset_100/'
-filenames = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+
+mypath = '../comm_use_subset_100/'  #TODO: Probably better to use 'sys' so that path can be specified by user
+#filenames = [f for f in listdir(mypath) if isfile(join(mypath, f))]  # List of all input JSON file names.
 with open('generated_text.txt', 'w') as out_file:
-    for paper in filenames:
-        if paper.endswith('.json'):
-            with open(mypath + paper, 'r') as json_file:
-                data = json.load(json_file) #Dictionary containing the json file
-                if data["metadata"]:
-                    title = data['metadata']['title']
-                    out_file.write(title + '\n\n')
-                if data['abstract']:
-                    if isinstance(data['abstract'],list):
-                        data['abstract'] = data['abstract'][0]
-                    abstract = data['abstract']['text']
-                    out_file.write(abstract + '\n\n')
-                for sentence in data['body_text']:
-                    out_file.write(sentence['text'] + '\n\n')
+    with open('rebuild_reference.txt', 'w') as out_reference:
+        # File to use when transforming BioBERT output to PubAnnotation
+        # Structure: <name of JSON> <cord_uid> <sourcedb> <sourceid> <divid>
+        with open('metadata_comm_use_subset_100.csv', 'r') as metadata_file:
+            metadata_reader = csv.reader(metadata_file)
+            for line in metadata_reader:
+                divid = 0  # Counter used in the reference file for the naming of files
+                paper = line[1].split(';')[0]  # Get the file_name of the paper. The metadata file sometimes has two names, hence the split
+                try:  # This avoids the first line and names that I don't have files for
+                    with open(mypath + paper + '.json', 'r') as json_file:
+                        data = json.load(json_file) #Dictionary containing the json file
+                        if data["metadata"]:  # If there is a title
+                            title = data['metadata']['title']
+                            out_file.write(title + '\n\n')
+                            divid += 1
+                            out_reference.write(line[0] + '-' + str(divid) + '-title '\
+                            + line[0] + ' ' + line[2] + ' ' + line[5] + ' ' + str(divid) + '\n')
+                        if data['abstract']:  # "If there is an abstract"
+                            if isinstance(data['abstract'],list):
+                                data['abstract'] = data['abstract'][0]
+                            abstract = data['abstract']['text']
+                            out_file.write(abstract + '\n\n')
+                            divid += 1
+                            out_reference.write(line[0] + '-' + str(divid) + '-abstract '\
+                            + line[0] + ' ' + line[2] + ' ' + line[5] + ' ' + str(divid) + '\n')
+                        for sentence in data['body_text']:
+                            out_file.write(sentence['text'] + '\n\n')
+                            divid += 1
+                            out_reference.write(line[0] + '-' + str(divid) + '-body_text '\
+                            + line[0] + ' ' + line[2] + ' ' + line[5] + ' ' + str(divid) + '\n')
+                except:
+                    pass

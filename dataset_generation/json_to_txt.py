@@ -27,25 +27,19 @@ with open('generated_text.txt', 'w') as out_file:
                         if data["metadata"]['title']:  # If there is a title. Might be better to extract title and abstract from metafile. Some of the JSONs seem incomplete
                             title = data['metadata']['title']
                             out_file.write(title + '\n\n')
-                            divid += 1
                             out_reference.write(line[0] + '-' + str(divid) + '-title '\
                             + line[0] + ' ' + line[2] + ' ' + line[5] + ' ' + str(divid) + '\n')
+                            divid += 1
                         if data['abstract']:  # "If there is an abstract"
-                            for paragraph in data['abstract']:
-                                '''
-                                if isinstance(data['abstract'],list): # If data[abstract] is a list
-                                    data['abstract'] = data['abstract'][0]
-                                abstract = data['abstract']['text']
-                                out_file.write(abstract + '\n\n')
-                                '''
+                            for paragraph in data['abstract']: #Loop is necessary because some papers have several paragrphs in abstract
                                 out_file.write(paragraph['text'] + '\n\n')
-                                divid += 1
                                 out_reference.write(line[0] + '-' + str(divid) + '-abstract '\
                                 + line[0] + ' ' + line[2] + ' ' + line[5] + ' ' + str(divid) + '\n')
+                                divid += 1
                         for sentence in data['body_text']:
                             out_file.write(sentence['text'] + '\n\n')
-                            divid += 1
                             out_reference.write(line[0] + '-' + str(divid) + '-body_text '\
                             + line[0] + ' ' + line[2] + ' ' + line[5] + ' ' + str(divid) + '\n')
+                            divid += 1
                 except:
                     pass

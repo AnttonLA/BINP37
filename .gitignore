@@ -5,6 +5,10 @@ NERdata
 *.zip
 doc/utils
 biobert_v1.1_pubmed.tar.gz
+antton
+evaluation
+results
+old_code
 
 #Not sure what this is :/
 .DS_store

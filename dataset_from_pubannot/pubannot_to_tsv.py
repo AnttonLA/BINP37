@@ -22,7 +22,6 @@ def removeall_replace(x, l):
 def sentence_to_tokens(text):  # Inspired by https://github.com/spyysalo/standoff2conll/blob/master/common.py
     """Return list of tokens in given sentence using NERsuite tokenization."""
     tok = [t for t in re.compile(r'([^\W_]+|.)').split(text) if t]
-    print('tok: ', tok)
     tok_nospace = removeall_replace(' ', tok)
     return tok_nospace
 
@@ -34,30 +33,48 @@ if len(sys.argv) != 2:  # Only input should be folder containing JSON files
 
 path_to_jasons = sys.argv[1]
 all_jsons = listdir(path_to_jasons)
+#allowed_tags = ['Virus_SARS-CoV-2', 'Virus_family', 'Virus_other', 'Disease_COVID-19', 'Disease_other', 'Symptom']
+allowed_tags = ['Protein']
+restric_by_tag = False
 
 with open('generated_test.tsv', 'w') as out_file:
     with open('rebuild_reference.txt', 'w') as out_reference:
+
+        last_cord_uid = 'placeholder_text'
+        paragraph_count = 0
 
         for file_name in all_jsons:
             with open(path_to_jasons + file_name, 'r') as in_json:
                 data = json.load(in_json)
 
-                #Reference file
+                #Wrtie reference file
                 cord_uid = data['cord_uid']
+                if cord_uid == ' ':
+                    cord_uid = 'no_cord_uid'
                 sourcedb = data['sourcedb']
                 sourceid = data['sourceid']
-                divid = data['divid']
 
                 #TODO: this info might need to be taken from the title, as PubAnnotation
                 # doesn't specify if a text is the title, abstract or body of the paper.
                 # Depending on the data we are given, maybe we can just copy the entire filenames!
+                # It is really hard to make a generalized version though, since the format is often inconsistent
+                if 'divid' in data.keys():
+                    divid = data['divid']
+                else:
+                    # Cheap workaround specific to the gold standard database
+                    if cord_uid == last_cord_uid: #  If it's not the first paragraph
+                        divid = 1
+                    else:
+                        divid = 0
+
                 if divid == 0:
                     out_reference.write(cord_uid + '-' + str(divid) + '-title '\
                     + cord_uid + ' ' + sourcedb + ' ' + sourceid + ' ' + str(divid) + '\n')
                 else:
-                    out_reference.write(cord_uid + '-' + str(divid) + '-body_text '\
+                    out_reference.write(cord_uid + '-' + str(divid) + '-abstract '\
                     + cord_uid + ' ' + sourcedb + ' ' + sourceid + ' ' + str(divid) + '\n')
 
+                last_cord_uid = cord_uid
 
                 # Extracting denotation data
                 text = data['text']  # Full text of the sentence
@@ -65,9 +82,10 @@ with open('generated_test.tsv', 'w') as out_file:
                 denots = data['denotations']
                 spans = []  # Will contain spans of all entities in the sentence as a tuple
                 for object in denots:  # For each of the individual denotations/objects/entities
-                    begin = object['span']['begin']
-                    end = object['span']['end']
-                    spans.append((begin,end))  # Append tuple
+                    if object['obj'] in allowed_tags:
+                        begin = object['span']['begin']
+                        end = object['span']['end']
+                        spans.append((begin,end))  # Append tuple
                 spans.sort(key=lambda x: x[0])  # Reorder tuples from smallest to biggest
 
                 # For each file, 'entities' is a list of every denotation object
@@ -81,30 +99,36 @@ with open('generated_test.tsv', 'w') as out_file:
 
                 #Writting the tsv file
 
+                #WEAK: it's not able to distinguish separate entities that are right next to one another
                 first_word = True
-                string_index = 0
-                index_in_expected_area = False
-                area_error = 20
+                rel_stop = 0
+                position = 0
+
                 for word in split_sentence:
-                    string_index += len(word)
-                    if spans and string_index in range(spans[0][0]-area_error,spans[0][1]):
-                        index_in_expected_area = True
-                    else:
-                        index_in_expected_area = False
-                    if entities and index_in_expected_area:  # If there are entities left to consider
-                        if word in entities[0]:
+                    if entities:  # If there are entities left to consider
+                        rel_start, rel_stop = re.search(re.escape(word), text[position:]).span()  # Relative span
+                        start = position + rel_start  # Actual start
+                        if word in entities[0] and start in range(spans[0][0],spans[0][1]):
                             if first_word:  # If it's the first word in a multi-word entity, tag is B
                                 out_file.write(word + '\t' + 'B' + '\n')
                                 first_word = False
                             else:  # If it's not the first word, tag is I
                                 out_file.write(word + '\t' + 'I' + '\n')
-                            if word == entities[0][-1]:
+                            if word == entities[0][-1]:  # If the word is the last one in that span, pop!
                                 first_word = True
                                 entities.pop(0)
                                 spans.pop(0)
+
                         else:
                             out_file.write(word + '\t' + 'O' + '\n')
                     else:
                         out_file.write(word + '\t' + 'O' + '\n')
-                    #Space between sentences
+
+                    position += rel_stop
+                #Space between sentences
                 out_file.write('\n')
+
+
+            paragraph_count += 1
+            #if paragraph_count == 1:
+            #    break

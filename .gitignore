@@ -1,15 +1,18 @@
 
+antton
 biobert
 comm_use_subset_100
+data
 NERdata
 *.zip
 doc/utils
 biobert_v1.1_pubmed.tar.gz
-antton
 evaluation
 results
 old_code
 edan70
+tests
+
 
 #Not sure what this is :/
 .DS_store
